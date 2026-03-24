@@ -50,6 +50,8 @@ diff:
 ${diff_content}" --tool gemini --mode write 2>/dev/null) || true
 
   # Parse LLM response using jq (fall back to grep if jq unavailable)
+  # Returns: 0 + stdout = success (judgment, reason, suggested_msg set)
+  #          1 = failure (LLM unavailable or parse failed)
   if [[ -n "$ccw_output" ]]; then
     local judgment reason suggested_msg
     if command -v jq &>/dev/null; then
@@ -66,13 +68,16 @@ ${diff_content}" --tool gemini --mode write 2>/dev/null) || true
     fi
 
     if [[ -n "$judgment" && -n "$reason" ]]; then
+      # Output recommendation for user to see
       advisor_output="AI Advisor Recommendation:"
       advisor_output+="\n  Judgment: $judgment"
       advisor_output+="\n  Reason: $reason"
       if [[ -n "$suggested_msg" ]]; then
-        advisor_output+="\n  Suggested message: $suggested_msg"
+        advisor_output+="\n  Suggested message: checkpoint: $suggested_msg"
       fi
       echo -e "$advisor_output"
+      # Return suggestion_msg as stdout so caller can use it
+      [[ -n "$suggested_msg" ]] && echo "SUGGESTION: checkpoint: $suggested_msg"
       return 0
     fi
   fi
@@ -135,19 +140,32 @@ MSG="${1:-}"
 if [[ -z "$MSG" ]]; then
   echo ""
   echo "=== AI Checkpoint Advisor ==="
-  if _ai_advisor; then
-    # AI provided recommendation, use it as suggestion
-    SUGGESTION=$(_generate_suggestion)
-    echo "Rule-based suggestion: checkpoint: $SUGGESTION"
+  # Capture AI advisor output to temp file (clean separation of stdout from suggestion)
+  local ai_out_file
+  ai_out_file=$(mktemp)
+  local ai_suggestion=""
+  if _ai_advisor > "$ai_out_file" 2>&1; then
+    # AI succeeded: extract suggested_message from output
+    ai_suggestion=$(grep '^SUGGESTION:' "$ai_out_file" | sed 's/^SUGGESTION: //')
+    # Show AI recommendation
+    cat "$ai_out_file"
+    # Also show rule-based as alternative
+    local rule_suggestion
+    rule_suggestion=$(_generate_suggestion)
+    echo ""
+    echo "Rule-based alternative: checkpoint: $rule_suggestion"
   else
-    # Fallback to rule-based
-    SUGGESTION=$(_generate_suggestion)
-    echo "Suggested: checkpoint: $SUGGESTION"
+    # AI failed: show output and fall back to rule-based
+    cat "$ai_out_file"
+    ai_suggestion=$(_generate_suggestion)
+    echo "Suggested: checkpoint: $ai_suggestion"
   fi
+  rm -f "$ai_out_file"
+  echo ""
   echo "Press Enter to accept, or type your own:"
   read -r USER_MSG
   if [[ -z "$USER_MSG" ]]; then
-    MSG="$SUGGESTION"
+    MSG="$ai_suggestion"
   else
     MSG="$USER_MSG"
   fi
