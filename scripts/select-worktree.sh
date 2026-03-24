@@ -9,6 +9,13 @@ cd "$REPO_DIR"
 
 WT_DIR="${REPO_DIR}/.worktree-first/worktrees"
 
+# jq is required for parsing metadata; warn if missing
+if ! command -v jq &>/dev/null; then
+  echo "WARNING: jq not found. Install with: brew install jq" >&2
+  echo "Without jq, cannot read worktree metadata." >&2
+  echo ""
+fi
+
 # If no worktrees metadata exists, guide user to start-task
 if [[ ! -d "$WT_DIR" ]] || [[ -z "$(ls -A "$WT_DIR" 2>/dev/null)" ]]; then
   echo ""
