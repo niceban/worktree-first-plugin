@@ -44,16 +44,16 @@ echo "  worktree: $WT_PATH"
 echo "  branch:   $branch"
 echo "  mode:     $merged"
 
-# 0. Delete metadata file
+# 0. Remove worktree first (metadata deleted AFTER successful removal)
+git worktree remove "$WT_PATH" && echo "  [OK] worktree removed" || { echo "  [FAIL] worktree remove failed" >&2; exit 1; }
+
+# 1. Delete metadata file (safe now that worktree is gone)
 META_FILE="${REPO_DIR}/.worktree-first/worktrees/${WT_NAME}.json"
 if [[ -f "$META_FILE" ]]; then
-  rm -f "$META_FILE" && echo "  [OK] metadata deleted" || echo "  [WARN] metadata delete failed"
+  rm -f "$META_FILE" && echo "  [OK] metadata deleted" || echo "  [WARN] metadata delete failed (ignored)"
 else
   echo "  [SKIP] metadata file not found"
 fi
-
-# 1. Remove worktree
-git worktree remove "$WT_PATH" && echo "  [OK] worktree removed" || echo "  [FAIL] worktree remove failed"
 
 # 2. Delete local branch
 if [[ "$merged" == "merged" ]]; then

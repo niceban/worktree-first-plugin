@@ -40,8 +40,9 @@ _ai_advisor() {
   fi
 
   # Call LLM to analyze the diff (use --mode write to get structured JSON output)
+  # Cross-platform timeout: use perl (available on both Linux and macOS)
   local ccw_output
-  ccw_output=$(timeout 30 ccw cli -p "PURPOSE: Analyze staged git diff and recommend whether to commit. Return ONLY valid JSON.
+  ccw_output=$(perl -e 'alarm shift; exec @ARGV' 30 -- ccw cli -p "PURPOSE: Analyze staged git diff and recommend whether to commit. Return ONLY valid JSON.
 TASK: Review the diff content. Evaluate if changes are meaningful and complete.
 EXPECTED: JSON with fields: judgment (must be exactly \"值得 commit\" or \"不值得 commit\"), reason (1-2 sentence explanation), suggested_message (brief commit message, 5-10 words max)
 CONSTRAINTS: Output ONLY valid JSON, no markdown code blocks, no explanation, just the JSON object
@@ -99,7 +100,7 @@ _generate_suggestion() {
       continue  # skip summary line
     fi
     # Check for new/deleted/modified file indicators
-    if [[ "$line" =~ ^(new file|"") ]]; then
+    if [[ "$line" =~ ^new\ file ]]; then
       changes+="add "
     elif [[ "$line" =~ ^deleted ]]; then
       changes+="remove "
