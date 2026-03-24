@@ -25,7 +25,7 @@ git fetch origin
 git rebase origin/main
 ```
 
-If conflicts occur → stop and report, do not auto-resolve.
+**Rebase rollback**: Before rebase, save `git rev-parse HEAD` to temp. On failure, offer `git rebase --abort` using saved ref.
 
 ## Action — Step 2: Review and squash history
 
@@ -43,7 +43,13 @@ Ask user to confirm squash message, or allow splitting into up to 3 commits if t
 git rebase -i origin/main
 ```
 
-## Action — Step 3: Full validation
+## Action — Step 3: AI Push Readiness Assessment (P2)
+
+Call LLM with: diff stats, changed files, checkpoint history, commit message.
+Display: X/5 stars + reason + improvement tips.
+**Non-blocking** — if LLM unavailable, skip and continue.
+
+## Action — Step 4: Full validation
 
 Run before push:
 
@@ -53,7 +59,7 @@ make test-all 2>/dev/null || make ci 2>/dev/null || make build
 
 If validation fails → do not push. Report failures.
 
-## Action — Step 4: Confirm push
+## Action — Step 5: Confirm push
 
 Show what will be pushed:
 

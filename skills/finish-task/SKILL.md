@@ -24,6 +24,13 @@ Clean up after a task is merged or abandoned: remove worktree, delete branches.
 ### If merged (PR is closed + merged on GitHub):
 
 ```bash
+# Delete metadata file
+rm .worktree-first/worktrees/<slug>.json
+
+# Remove worktree
+git worktree remove ../wt/<slug>
+
+```bash
 # Remove worktree
 git worktree remove ../wt/<slug>
 

@@ -15,14 +15,17 @@ Resume or continue an existing task by inspecting current worktree state.
 
 ## Action
 
-1. Run `git worktree list --porcelain` to list all worktrees
-2. For each worktree, show:
+1. Read `.worktree-first/worktrees/*.json` metadata for richer state display
+2. Run `git worktree list --porcelain` to list all worktrees
+3. For each worktree, show:
    - Branch name
    - Worktree path
    - Dirty/clean status
+   - Checkpoint count (from metadata)
+   - Last active time (from metadata)
    - Last commit message
    - Number of unpushed commits
-3. If there are unpushed commits on a task branch, warn the user
+4. If there are unpushed commits on a task branch, warn the user
 
 ## Output
 
