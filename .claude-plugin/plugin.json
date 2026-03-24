@@ -1,0 +1,13 @@
+{
+  "name": "worktree-first",
+  "version": "1.0.0",
+  "description": "Worktree-first Git workflow plugin. Enforces branch+worktree isolation for all changes, main branch protection, and clean commit hygiene.",
+  "author": {
+    "name": "Claude Code",
+    "url": "https://github.com/your-org/worktree-first-plugin"
+  },
+  "homepage": "https://github.com/your-org/worktree-first-plugin",
+  "repository": "https://github.com/your-org/worktree-first-plugin",
+  "license": "MIT",
+  "keywords": ["git", "worktree", "workflow", "devops"]
+}
