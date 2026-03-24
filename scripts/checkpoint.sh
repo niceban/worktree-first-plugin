@@ -7,9 +7,12 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null |
 [[ -z "$PROJECT_DIR" ]] && { echo "Not a git repository." >&2; exit 1; }
 cd "$PROJECT_DIR"
 
-# Find the worktree path (used for metadata lookup)
-# When in a worktree, git worktree list shows the worktree; from main repo, shows main
-WORKTREE_PATH="$(git worktree list --porcelain | head -1 | sed 's/^worktree //')"
+# Find the current worktree path (correctly identifies current worktree even from within it)
+# git rev-parse --show-toplevel always returns the actual working tree root
+WORKTREE_PATH="$(git rev-parse --show-toplevel 2>/dev/null || echo '')"
+
+# Derive slug from the worktree path (last path component)
+WORKTREE_SLUG="$(basename "$WORKTREE_PATH")"
 
 # Guard: must not be on main
 branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
@@ -36,39 +39,41 @@ _ai_advisor() {
     return 1
   fi
 
-  # Call LLM to analyze the diff
+  # Call LLM to analyze the diff (use --mode write to get structured JSON output)
   local ccw_output
-  ccw_output=$(ccw cli -p "PURPOSE: Analyze staged git diff and recommend whether to commit.
-TASK: • Review the diff content • Evaluate if changes are meaningful and complete • Provide a clear recommendation
-MODE: analysis
-CONTEXT: (diff content below)
-EXPECTED: JSON output with: {judgment: \"值得 commit\" or \"不值得 commit\", reason: \"1-2 sentence explanation\", suggested_message: \"brief commit message suggestion\"}
-CONSTRAINTS: Output must be valid JSON only, no markdown formatting
+  ccw_output=$(timeout 30 ccw cli -p "PURPOSE: Analyze staged git diff and recommend whether to commit. Return ONLY valid JSON.
+TASK: Review the diff content. Evaluate if changes are meaningful and complete.
+EXPECTED: JSON with fields: judgment (must be exactly \"值得 commit\" or \"不值得 commit\"), reason (1-2 sentence explanation), suggested_message (brief commit message, 5-10 words max)
+CONSTRAINTS: Output ONLY valid JSON, no markdown code blocks, no explanation, just the JSON object
 ---
 diff:
-${diff_content}" --tool gemini --mode analysis 2>/dev/null) || true
+${diff_content}" --tool gemini --mode write 2>/dev/null) || true
 
-  # Parse LLM response
+  # Parse LLM response using jq (fall back to grep if jq unavailable)
   if [[ -n "$ccw_output" ]]; then
-    # Extract JSON from response (handle potential markdown code blocks)
-    local json_response
-    json_response=$(echo "$ccw_output" | sed -n '/{/,/}/p' | head -20)
-    if [[ -n "$json_response" ]]; then
-      local judgment reason suggested_msg
-      judgment=$(echo "$json_response" | grep -oP '"judgment"[[:space:]]*:[[:space:]]*"\K[^"]+' || echo "")
-      reason=$(echo "$json_response" | grep -oP '"reason"[[:space:]]*:[[:space:]]*"\K[^"]+' || echo "")
-      suggested_msg=$(echo "$json_response" | grep -oP '"suggested_message"[[:space:]]*:[[:space:]]*"\K[^"]+' || echo "")
+    local judgment reason suggested_msg
+    if command -v jq &>/dev/null; then
+      judgment=$(echo "$ccw_output" | jq -r '.judgment // empty' 2>/dev/null || echo "")
+      reason=$(echo "$ccw_output" | jq -r '.reason // empty' 2>/dev/null || echo "")
+      suggested_msg=$(echo "$ccw_output" | jq -r '.suggested_message // empty' 2>/dev/null || echo "")
+    else
+      # Strip markdown code blocks if present, then grep fields
+      local json_text
+      json_text=$(echo "$ccw_output" | sed 's/```json//g;s/```//g' | tr -d '\n')
+      judgment=$(echo "$json_text" | grep -oP '"judgment"[[:space:]]*:[[:space:]]*"\K[^"]+' || echo "")
+      reason=$(echo "$json_text" | grep -oP '"reason"[[:space:]]*:[[:space:]]*"\K[^"]+' || echo "")
+      suggested_msg=$(echo "$json_text" | grep -oP '"suggested_message"[[:space:]]*:[[:space:]]*"\K[^"]+' || echo "")
+    fi
 
-      if [[ -n "$judgment" && -n "$reason" ]]; then
-        advisor_output="AI Advisor Recommendation:"
-        advisor_output+="\n  Judgment: $judgment"
-        advisor_output+="\n  Reason: $reason"
-        if [[ -n "$suggested_msg" ]]; then
-          advisor_output+="\n  Suggested message: $suggested_msg"
-        fi
-        echo -e "$advisor_output"
-        return 0
+    if [[ -n "$judgment" && -n "$reason" ]]; then
+      advisor_output="AI Advisor Recommendation:"
+      advisor_output+="\n  Judgment: $judgment"
+      advisor_output+="\n  Reason: $reason"
+      if [[ -n "$suggested_msg" ]]; then
+        advisor_output+="\n  Suggested message: $suggested_msg"
       fi
+      echo -e "$advisor_output"
+      return 0
     fi
   fi
 

@@ -9,8 +9,11 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null |
 [[ -z "$PROJECT_DIR" ]] && { echo "Not a git repository." >&2; exit 1; }
 cd "$PROJECT_DIR"
 
-# Find the worktree path (used for metadata lookup)
-WORKTREE_PATH="$(git worktree list --porcelain | head -1 | sed 's/^worktree //')"
+# Find the current worktree path (correctly identifies current worktree even from within it)
+WORKTREE_PATH="$(git rev-parse --show-toplevel 2>/dev/null || echo '')"
+
+# Derive slug from the worktree path (last path component)
+WORKTREE_SLUG="$(basename "$WORKTREE_PATH")"
 
 branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 
