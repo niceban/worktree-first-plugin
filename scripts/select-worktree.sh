@@ -31,9 +31,13 @@ while IFS= read -r -d '' meta_file; do
   checkpoints_len=$(jq -r '.checkpoints | length // 0' "$meta_file" 2>/dev/null)
   last_active=$(jq -r '.last_active_at // ""' "$meta_file" 2>/dev/null)
 
-  # Compute relative time
+  # Compute relative time (cross-platform: Linux date -d, macOS date -j -f)
   if [[ -n "$last_active" ]]; then
-    last_rel=$(date -d "$last_active" +%s 2>/dev/null || echo 0)
+    if [[ "$(uname)" == "Darwin" ]]; then
+      last_rel=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$last_active" +%s 2>/dev/null || echo 0)
+    else
+      last_rel=$(date -d "$last_active" +%s 2>/dev/null || echo 0)
+    fi
     now_ts=$(date +%s)
     age_secs=$((now_ts - last_rel))
     if [[ "$age_secs" -lt 60 ]]; then
