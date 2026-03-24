@@ -23,11 +23,11 @@ current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 # Rule 1: On main branch — block ALL file-writing Bash commands
 # =====================================================================
 if [[ "$current_branch" == "main" ]]; then
-  # Detect file-writing commands using simpler, clear patterns
-  # Block: >file, >>file, |tee, |cat>, sed -i, python -c with write, perl -i, truncate, etc.
-  # Allow: |less, |grep, |head, read-only redirects to /dev/null
-  if echo "$COMMAND" | grep -qE '(\s>>|\s>|\|[[:space:]]*tee\b|\|cat\s*>|sed\s+-i|perl\s+-i|\.write\(|\.truncate|truncate\(|\bdd\b.*of=|\btr\b.*of=)' && \
-     ! echo "$COMMAND" | grep -qE '>/dev/null|2\s*>\s*/dev/null'; then
+  # Detect file-writing commands: output redirect, tee, sed -i, perl -i,
+  # python -c with write, truncate, dd, tr of=
+  # Allow: redirects to /dev/null (any spacing: >file, > file, >  file)
+  if echo "$COMMAND" | grep -qE '(\s>>|\s>|\|[[:space:]]*tee\b|\|cat\s*>|sed\s+-i|perl\s+-i|\S\.write\(|truncate|dd\b.*of=|tr\b.*of=)' && \
+     ! echo "$COMMAND" | grep -qE '[^>]*>(2\s*)?\s*/dev/null'; then
     DENY_REASON="Cannot run file-writing commands while on main branch. Switch to a task worktree first."
     jq -n --arg r "$DENY_REASON" '{
       hookSpecificOutput: {
@@ -58,8 +58,10 @@ fi
 
 # =====================================================================
 # Rule 3: Block bare --force (without --force-with-lease)
+# Blocks: --force, -f (both long and short form)
+# Allows: --force-with-lease (always safe)
 # =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*--force' && \
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*'"--force($| )" && \
    ! echo "$COMMAND" | grep -qE -- '--force-with-lease'; then
   DENY_REASON="Use --force-with-lease instead of bare --force."
   jq -n --arg r "$DENY_REASON" '{
@@ -72,11 +74,10 @@ if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*--force' && \
   exit 0
 fi
 
-# =====================================================================
-# Rule 4: Block git reset --hard
-# =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard'; then
-  DENY_REASON="git reset --hard is blocked. Use git restore to selectively undo changes."
+# Also block -f short form (but not -fx, -fX which are different flags)
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*'"-f($| )" && \
+   ! echo "$COMMAND" | grep -qE -- '--force-with-lease'; then
+  DENY_REASON="Use --force-with-lease (-f is not allowed). Bare force push is dangerous."
   jq -n --arg r "$DENY_REASON" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -88,10 +89,31 @@ if echo "$COMMAND" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard'; then
 fi
 
 # =====================================================================
-# Rule 5: Block git clean -fdx (destroy untracked)
+# Rule 4: Block git reset --hard without explicit commit/path
+# git reset --hard (bare, no target) is maximally dangerous: resets index
+# and working tree to HEAD, losing ALL uncommitted changes.
+# git reset --hard <commit> is still dangerous but intentional.
+# We block only the bare form (no path/ref after --hard).
+# =====================================================================
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard$'; then
+  DENY_REASON="git reset --hard with no target is maximally dangerous. Use git restore or specify a commit."
+  jq -n --arg r "$DENY_REASON" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: $r
+    }
+  }'
+  exit 0
+fi
+
+# =====================================================================
+# Rule 5: Block git clean when -x or -X flag is present (destroys
+# ignored files like build artifacts, node_modules). -fd without x/X is safe.
+# Blocks: -fdx, -fdX, -fdxd, -fdxx, -fx, -fX (any combo with x/X)
 # =====================================================================
 if echo "$COMMAND" | grep -qE 'git[[:space:]]+clean[[:space:]]+-[fFxX]([xX]|[dD][xX])$'; then
-  DENY_REASON="git clean -fdx destroys untracked files. Use -fd for safer cleanup."
+  DENY_REASON="git clean with -x or -X destroys ignored files (build artifacts, node_modules). Use -fd for safe cleanup."
   jq -n --arg r "$DENY_REASON" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -107,21 +129,6 @@ fi
 # =====================================================================
 if echo "$COMMAND" | grep -qE 'git[[:space:]]+branch[[:space:]]+-[Dd][[:space:]]+(main|master)'; then
   DENY_REASON="Cannot delete main or master branch."
-  jq -n --arg r "$DENY_REASON" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
-    }
-  }'
-  exit 0
-fi
-
-# =====================================================================
-# Rule 7: Block git reset --hard without path (ambiguous/dangerous)
-# =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard[[:space:]]*$'; then
-  DENY_REASON="git reset --hard without path is ambiguous and dangerous. Use git restore or specify a path."
   jq -n --arg r "$DENY_REASON" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

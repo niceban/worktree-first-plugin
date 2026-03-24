@@ -154,10 +154,10 @@ MODE: analysis"
   # Call LLM for assessment
   local assessment
   if command -v ccw &>/dev/null; then
-    # Set timeout for CLI call (30 seconds)
-    assessment=$(timeout 30 ccw cli -p "$prompt" --tool gemini --mode analysis 2>&1) || {
+    # Set timeout for CLI call (30 seconds, cross-platform: macOS has no timeout command)
+    assessment=$(perl -e 'alarm shift; exec @ARGV' 30 -- ccw cli -p "$prompt" --tool gemini --mode analysis 2>&1) || {
       local exit_code=$?
-      if [[ $exit_code -eq 124 ]]; then
+      if [[ $exit_code -eq 142 ]]; then
         echo "  [SKIP] AI assessment timed out, continuing..."
       else
         echo "  [SKIP] AI assessment failed (ccw error), continuing without it..."
