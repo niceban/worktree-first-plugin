@@ -118,9 +118,18 @@ if echo "$COMMAND" | grep -qE 'git[[:space:]]+branch[[:space:]]+-[Dd][[:space:]]
 fi
 
 # =====================================================================
-# Rule 7: On main branch — block all git commands that modify history
-# (force push already handled above, this catches non-force push to main separately)
+# Rule 7: Block git reset --hard without path (ambiguous/dangerous)
 # =====================================================================
-# Already handled in Rule 2 above
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard[[:space:]]*$'; then
+  DENY_REASON="git reset --hard without path is ambiguous and dangerous. Use git restore or specify a path."
+  jq -n --arg r "$DENY_REASON" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: $r
+    }
+  }'
+  exit 0
+fi
 
 exit 0

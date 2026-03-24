@@ -3,9 +3,19 @@
 
 set -euo pipefail
 
-REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null || { echo "Not a git repository." >&2; exit 1; })
+# Capture worktree path BEFORE any cd (PWD is the worktree at this point)
 WT_PATH="$PWD"
-cd "$REPO_DIR"
+
+# Find the repo root: git-dir returns .git dir (relative from main repo, absolute from worktree)
+# From main repo: git-dir = .git, so git-dir/.. = repo root
+# From worktree: git-dir = /path/to/repo/.git, so git-dir/.. = repo root
+REPO_DIR="$(cd "$(git rev-parse --git-dir)/.." && pwd)"
+
+# Verify we're in a git repo
+git rev-parse --git-dir &>/dev/null || { echo "Not a git repository." >&2; exit 1; }
+
+# Determine worktree/branch name from WT_PATH
+WT_NAME="$(basename "$WT_PATH")"
 
 branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 
@@ -29,14 +39,18 @@ fi
 
 merged="${1:-merged}"  # merged | abandoned
 
-# Determine worktree name from path
-# ../wt/search-index → search-index
-WT_NAME=$(basename "$WT_PATH")
-
 echo "Cleaning up task: $branch"
 echo "  worktree: $WT_PATH"
 echo "  branch:   $branch"
 echo "  mode:     $merged"
+
+# 0. Delete metadata file
+META_FILE="${REPO_DIR}/.worktree-first/worktrees/${WT_NAME}.json"
+if [[ -f "$META_FILE" ]]; then
+  rm -f "$META_FILE" && echo "  [OK] metadata deleted" || echo "  [WARN] metadata delete failed"
+else
+  echo "  [SKIP] metadata file not found"
+fi
 
 # 1. Remove worktree
 git worktree remove "$WT_PATH" && echo "  [OK] worktree removed" || echo "  [FAIL] worktree remove failed"

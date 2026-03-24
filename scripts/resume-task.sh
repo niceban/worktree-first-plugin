@@ -7,11 +7,23 @@ REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null || { echo "Not a git reposi
 cd "$REPO_DIR"
 
 echo "=== Active Worktrees ==="
+WT_DIR="${REPO_DIR}/.worktree-first/worktrees"
 git worktree list --porcelain | while read -r line; do
   if [[ "$line" =~ ^path\  ]]; then
     path="${line#path }"
     echo ""
     echo "  path:    $path"
+    # Extract slug from worktree path (e.g., ../wt/my-task -> my-task)
+    slug=$(basename "$path")
+    meta_file="${WT_DIR}/${slug}.json"
+    if [[ -f "$meta_file" ]]; then
+      last_active=$(jq -r '.last_active_at // "unknown"' "$meta_file" 2>/dev/null)
+      dirty=$(jq -r '.dirty // false' "$meta_file" 2>/dev/null)
+      checkpoints=$(jq -r '.checkpoints | length // 0' "$meta_file" 2>/dev/null)
+      echo "  last_active: $last_active"
+      echo "  dirty:       $dirty"
+      echo "  checkpoints: $checkpoints"
+    fi
   elif [[ "$line" =~ ^branch\  ]]; then
     branch="${line#branch }"
     echo "  branch:  $branch"
