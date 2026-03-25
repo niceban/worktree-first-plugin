@@ -114,11 +114,8 @@ print()
 print("--- Rule 5: git clean -fdx ---")
 guard_deny("git clean -fdx")
 guard_deny("git clean -fdX")
-# Note: -fdxd and -fdxx are edge cases (duplicate flags that git ignores).
-# They are NOT blocked by the primary pattern but are caught as -fdx variants
-# by the regex engine's backtracking. Adjust expectations after verification.
-guard_allow("git clean -fdxd")
-guard_allow("git clean -fdxx")
+guard_deny("git clean -fdxd")
+guard_deny("git clean -fdxx")
 guard_allow("git clean -fd")
 guard_allow("git clean -f")
 

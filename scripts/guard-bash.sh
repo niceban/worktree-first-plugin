@@ -110,9 +110,10 @@ fi
 # =====================================================================
 # Rule 5: Block git clean when -x or -X flag is present (destroys
 # ignored files like build artifacts, node_modules). -fd without x/X is safe.
-# Blocks: -fdx, -fdX, -fdxd, -fdxx, -fx, -fX (any combo with x/X)
+# Blocks: -fdx, -fdX, -fdxd, -fdxx, -fx, -fX (any sequence with x/X)
+# Pattern: [dD]*[xX]+[dD]* matches x/X surrounded by any number of d/D
 # =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+clean[[:space:]]+-[fFxX]([xX]|[dD][xX])$'; then
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+clean[[:space:]]+-[fFxX]([dD]*[xX]+[dD]*)$'; then
   DENY_REASON="git clean with -x or -X destroys ignored files (build artifacts, node_modules). Use -fd for safe cleanup."
   jq -n --arg r "$DENY_REASON" '{
     hookSpecificOutput: {
