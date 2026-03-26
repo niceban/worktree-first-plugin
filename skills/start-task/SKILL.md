@@ -54,3 +54,14 @@ git -C "../wt/<slug>" config --worktree branch.autosetuprebase always
 - If worktree already exists: "A worktree for this task already exists at `../wt/<slug>`. Use `/worktree-first:resume-task` instead."
 - If `origin/main` not found: "No `origin/main` found. Ensure the remote is configured."
 - If uncommitted changes on main: "Stash or commit changes on main first, then retry."
+
+## Auto-Worktree Behavior (Guard)
+
+When you attempt to Edit, Write, MultiEdit, or run dangerous Bash commands while on the `main` branch, the guard hook will automatically:
+
+1. Create a new worktree at `../wt/<slug>` with a task branch
+2. Configure it with rerere and autosetuprebase
+3. Create metadata in `.worktree-first/worktrees/<slug>.json`
+4. Show a message explaining where the worktree was created and how to switch
+
+This means you can seamlessly continue your work without manually creating a worktree first. Just use `/worktree-first:start-task` to explicitly create a named worktree, or let the guard auto-create one if you forget.

@@ -208,6 +208,12 @@ _meta_update_checkpoint() {
   repo_root="$(git rev-parse --git-dir)/.."
   local meta_file="${repo_root}/.worktree-first/worktrees/${slug}.json"
   if [[ -f "$meta_file" ]]; then
+    # Backup before writing
+    local backup_dir="${meta_file}.backups"
+    mkdir -p "$backup_dir"
+    cp "$meta_file" "${backup_dir}/$(date -u +%Y%m%d-%H%M%S).json"
+    ls -1t "$backup_dir" | tail -n +4 | xargs -r rm -f
+
     local now
     now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     # Use jq to update metadata fields atomically

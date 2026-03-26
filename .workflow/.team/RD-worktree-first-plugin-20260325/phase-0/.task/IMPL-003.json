@@ -1,0 +1,12 @@
+{
+  "id": "IMPL-003",
+  "task": "hooks.json 更新 + 清理旧 guard 脚本",
+  "owner": "executor",
+  "priority": "Critical",
+  "status": "pending",
+  "phase": 0,
+  "dependencies": ["IMPL-001"],
+  "description": "更新 hooks/hooks.json：PreToolUse Edit|Write|MultiEdit 和 Bash 都指向 guard-auto-worktree.sh，timeout 改为 15",
+  "success_criteria": "hooks.json 验证通过，guard-main-write.sh 和 guard-bash.sh 可删除",
+  "fixes": []
+}

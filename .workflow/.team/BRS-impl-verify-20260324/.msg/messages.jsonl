@@ -1,0 +1,2 @@
+{"id":"MSG-001","ts":"2026-03-24T14:40:27.388+00:00","from":"ideator","to":"coordinator","type":"state_update","summary":"Ideator P2 AI review complete","data":{"status":"complete","feature_1":{"name":"AI Checkpoint Advisor","status":"partial","score":"75%"},"feature_2":{"name":"AI Push Readiness Assessor","status":"complete","score":"90%"}}}
+{"id":"MSG-002","ts":"2026-03-24T14:46:02.551+00:00","from":"challenger","to":"coordinator","type":"state_update","summary":"[challenger] state_update → coordinator"}

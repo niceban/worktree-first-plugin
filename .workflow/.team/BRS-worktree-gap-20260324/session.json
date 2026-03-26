@@ -1,0 +1,12 @@
+{
+  "team_name": "brainstorm",
+  "session_id": "BRS-worktree-gap-20260324",
+  "topic": "worktree-first插件当前改法 vs 原始需求的完整差距检查",
+  "pipeline_mode": "full",
+  "angles": ["gap_analysis", "architecture", "user_experience", "ai_enhancement"],
+  "gc_round": 0,
+  "max_gc_rounds": 2,
+  "completion_action": "auto_keep",
+  "created": "2026-03-24",
+  "status": "active"
+}

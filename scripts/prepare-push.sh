@@ -47,12 +47,33 @@ commit_count=$(git log --oneline origin/main..HEAD | wc -l | tr -d ' ')
 echo "Commits on branch: $commit_count"
 
 if [[ "$commit_count" -gt 1 ]]; then
-  # Enforce: squash required for >1 commit
+  # Offer auto-squash using git rebase --autosquash
   echo ""
   echo "BLOCKED: $commit_count commits detected. Squash to 1 review commit required."
-  echo "Run: git rebase -i origin/main"
-  echo "  - Mark all except first as 'squash' or 'fixup'"
-  echo "  - Write a clean commit message: <type>: <intent>"
+  echo ""
+
+  # Try to get AI-generated commit message for squash
+  auto_msg=""
+  if command -v ccw &>/dev/null; then
+    diff_content=$(git diff origin/main..HEAD 2>/dev/null | head -50)
+    prompt="PURPOSE: Generate a conventional commit message for squashed commits
+TASK: Create a concise commit message following conventional commits format
+CONTEXT:
+$(git log origin/main..HEAD --format="%h %s" 2>/dev/null | head -10)
+=== Diff Preview ===
+$diff_content
+EXPECTED OUTPUT: Just the commit message, format: <type>: <short description>
+MODE: write"
+    auto_msg=$(perl -e 'alarm shift; exec @ARGV' 30 -- ccw cli -p "$prompt" --tool gemini --mode write 2>&1) || true
+    auto_msg=$(echo "$auto_msg" | sed 's/```json//g;s/```//g' | tr -d '\n' | grep -oP '"[^"]+":\s*"[^"]+"' | grep -oP ':\s*\K[^"]+' | head -1 || echo "")
+  fi
+
+  echo "Options:"
+  echo "  1) Auto-squash with AI message: git rebase -i --autosquash origin/main"
+  echo "     ${auto_msg:+Proposed: $auto_msg}"
+  echo "  2) Manual squash: git rebase -i origin/main"
+  echo "     - Mark all except first as 'squash' or 'fixup'"
+  echo "     - Write a clean commit message: <type>: <intent>"
   echo ""
   echo "After squashing, re-run: /worktree-first:prepare-push"
   exit 1
@@ -203,6 +224,12 @@ _meta_set_clean() {
   repo_root="$(git rev-parse --git-dir)/.."
   local meta_file="${repo_root}/.worktree-first/worktrees/${slug}.json"
   if [[ -f "$meta_file" ]]; then
+    # Backup before writing
+    local backup_dir="${meta_file}.backups"
+    mkdir -p "$backup_dir"
+    cp "$meta_file" "${backup_dir}/$(date -u +%Y%m%d-%H%M%S).json"
+    ls -1t "$backup_dir" | tail -n +4 | xargs -r rm -f
+
     local now
     now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     jq \

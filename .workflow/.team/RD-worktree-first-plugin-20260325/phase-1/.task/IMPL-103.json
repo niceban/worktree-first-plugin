@@ -1,0 +1,19 @@
+{
+  "id": "IMPL-103",
+  "task": "P0-2: doctor.sh staleness 改用 last_active_at",
+  "owner": "executor",
+  "priority": "P0",
+  "status": "pending",
+  "phase": 1,
+  "dependencies": [],
+  "description": "修复 doctor.sh L45-53 的 staleness 判断逻辑，从 git commit 时间改为读取 .worktree-first/worktrees/<slug>.json 的 last_active_at 字段，更准确反映实际活跃状态。",
+  "success_criteria": "创建一个 worktree（有 metadata），commit 10天前但 last_active_at 昨天，运行 doctor.sh 不报 staleness",
+  "files": {
+    "modify": ["scripts/doctor.sh"]
+  },
+  "fix_detail": {
+    "root_cause": "git log -1 --format=%ct 是 commit 时间，不反映实际的 metadata last_active_at",
+    "solution": "从 metadata JSON 读取 last_active_at，用 date 命令转为 unix timestamp",
+    "compatibility": "无 metadata 时回退到 commit 时间（向后兼容）"
+  }
+}

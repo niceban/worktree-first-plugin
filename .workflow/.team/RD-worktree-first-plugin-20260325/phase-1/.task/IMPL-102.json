@@ -1,0 +1,19 @@
+{
+  "id": "IMPL-102",
+  "task": "P0-1: resume-task.sh 解析 bug 修复",
+  "owner": "executor",
+  "priority": "P0",
+  "status": "pending",
+  "phase": 1,
+  "dependencies": [],
+  "description": "修复 resume-task.sh L11 的 while read 循环，git worktree list --porcelain 输出包含空白行分隔符，read 遇到空行返回非零导致 set -e 脚本退出。用 awk 重写（参照 doctor.sh 已有成功实践）。",
+  "success_criteria": "创建 3 个 worktree，执行 resume-task.sh，3 个的 slug/branch/HASH 均正确输出",
+  "files": {
+    "modify": ["scripts/resume-task.sh"]
+  },
+  "fix_detail": {
+    "root_cause": "while read 在 set -euo pipefail 下，read 遇到空白行返回 1 触发 exit",
+    "solution": "用 awk 代替 while read，自然处理空白行分隔符",
+    "reference": "doctor.sh L15-37 已有成功实践"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "IMPL-001",
+  "task": "D1+D2+D4+D5+D6+D7: 重建 Guard 核心架构",
+  "owner": "executor",
+  "priority": "Critical",
+  "status": "pending",
+  "phase": 0,
+  "dependencies": [],
+  "description": "修复所有 guard 脚本中的 cd $PROJECT_DIR 问题。核心改变：1) 不 cd，永远在 PWD 查 git context 2) 用 PWD == git_root 判断是否在 main worktree 3) 在 task worktree 里完全放行 4) is_main_worktree 精确化 5) auto-create 幂等性 6) rollback 机制 7) worktree 路径动态计算",
+  "success_criteria": "main worktree 危险命令 deny，worktree 内所有命令 allow，auto-create 有幂等性有 rollback",
+  "fixes": ["D1", "D2", "D4", "D5", "D6", "D7"]
+}

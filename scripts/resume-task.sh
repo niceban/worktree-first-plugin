@@ -8,30 +8,55 @@ cd "$REPO_DIR"
 
 echo "=== Active Worktrees ==="
 WT_DIR="${REPO_DIR}/.worktree-first/worktrees"
-git worktree list --porcelain | while read -r line; do
-  if [[ "$line" =~ ^path\  ]]; then
-    path="${line#path }"
-    echo ""
-    echo "  path:    $path"
-    # Extract slug from worktree path (e.g., ../wt/my-task -> my-task)
-    slug=$(basename "$path")
-    meta_file="${WT_DIR}/${slug}.json"
-    if [[ -f "$meta_file" ]]; then
-      last_active=$(jq -r '.last_active_at // "unknown"' "$meta_file" 2>/dev/null)
-      dirty=$(jq -r '.dirty // false' "$meta_file" 2>/dev/null)
-      checkpoints=$(jq -r '.checkpoints | length // 0' "$meta_file" 2>/dev/null)
-      echo "  last_active: $last_active"
-      echo "  dirty:       $dirty"
-      echo "  checkpoints: $checkpoints"
-    fi
-  elif [[ "$line" =~ ^branch\  ]]; then
-    branch="${line#branch }"
-    echo "  branch:  $branch"
-  elif [[ "$line" =~ ^HEAD\  ]]; then
-    head="${line#HEAD }"
-    commit=$(git log -1 --format="%h %s" "$head" 2>/dev/null || echo "unknown")
-    echo "  HEAD:    $commit"
-  fi
+
+# Parse worktree list --porcelain into fields using awk to handle blank line separators
+git worktree list --porcelain | awk '
+  $1 == "path" { path = $2; next }
+  $1 == "branch" { branch = $2; next }
+  $1 == "HEAD" { head = $2; next }
+  $0 ~ /^[^ ]/ && path != "" {
+    print "PATH:" path
+    print "BRANCH:" branch
+    print "HEAD:" head
+    print "---"
+    path = ""; branch = ""; head = ""
+  }
+  END {
+    if (path != "") {
+      print "PATH:" path
+      print "BRANCH:" branch
+      print "HEAD:" head
+    }
+  }
+' | while IFS= read -r line; do
+  case "$line" in
+    PATH:*)
+      path="${line#PATH:}"
+      echo ""
+      echo "  path:    $path"
+      # Extract slug from worktree path (e.g., ../wt/my-task -> my-task)
+      slug=$(basename "$path")
+      meta_file="${WT_DIR}/${slug}.json"
+      if [[ -f "$meta_file" ]]; then
+        last_active=$(jq -r '.last_active_at // "unknown"' "$meta_file" 2>/dev/null)
+        dirty=$(jq -r '.dirty // false' "$meta_file" 2>/dev/null)
+        checkpoints=$(jq -r '.checkpoints | length // 0' "$meta_file" 2>/dev/null)
+        echo "  last_active: $last_active"
+        echo "  dirty:       $dirty"
+        echo "  checkpoints: $checkpoints"
+      fi
+      ;;
+    BRANCH:*)
+      branch="${line#BRANCH:}"
+      echo "  branch:  $branch"
+      ;;
+    HEAD:*)
+      head="${line#HEAD:}"
+      commit=$(git log -1 --format="%h %s" "$head" 2>/dev/null || echo "unknown")
+      echo "  HEAD:    $commit"
+      ;;
+    ---*) ;;
+  esac
 done
 
 echo ""

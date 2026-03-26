@@ -1,0 +1,12 @@
+{
+  "id": "IMPL-002",
+  "task": "guard-auto-worktree.sh 完整实现（suggestion + 7 条危险规则）",
+  "owner": "executor",
+  "priority": "Critical",
+  "status": "pending",
+  "phase": 0,
+  "dependencies": ["IMPL-001"],
+  "description": "基于 IMPL-001 的核心函数，实现完整的 guard-auto-worktree.sh：main worktree 危险操作返回 deny + suggestions，task worktree 完全放行，包含全部 7 条危险命令拦截规则",
+  "success_criteria": "main worktree: deny + suggestion（切换命令），worktree 内: allow",
+  "fixes": ["D3"]
+}

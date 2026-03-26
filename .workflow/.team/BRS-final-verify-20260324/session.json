@@ -1,0 +1,12 @@
+{
+  "team_name": "brainstorm",
+  "session_id": "BRS-final-verify-20260324",
+  "topic": "真的可用了么？对我这个插件做最严格的逐行审查",
+  "pipeline_mode": "full",
+  "angles": ["script_correctness", "hook_integration", "ai_fallback_chain", "metadata_integrity"],
+  "gc_round": 0,
+  "max_gc_rounds": 2,
+  "completion_action": "auto_keep",
+  "created": "2026-03-24",
+  "status": "active"
+}

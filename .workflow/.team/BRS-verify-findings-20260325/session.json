@@ -1,0 +1,12 @@
+{
+  "team_name": "brainstorm",
+  "session_id": "BRS-verify-findings-20260325",
+  "topic": "验证 4 项代码发现是否正确",
+  "pipeline_mode": "full",
+  "angles": ["prepare-push-timeout", "guard-bash-tests", "checkpoint-ai-advisor", "other-7-items"],
+  "gc_round": 0,
+  "max_gc_rounds": 2,
+  "completion_action": "auto_keep",
+  "created": "2026-03-25",
+  "status": "active"
+}

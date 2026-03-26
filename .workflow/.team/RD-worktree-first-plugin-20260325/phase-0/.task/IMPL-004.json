@@ -1,0 +1,12 @@
+{
+  "id": "IMPL-004",
+  "task": "guard-bash.test.sh 扩展测试（新增 worktree 隔离测试）",
+  "owner": "executor",
+  "priority": "High",
+  "status": "pending",
+  "phase": 0,
+  "dependencies": ["IMPL-001", "IMPL-002"],
+  "description": "在现有 37 case 基础上新增 4 个关键测试：1) main worktree 危险命令 deny 2) task worktree 危险命令 allow 3) main worktree --cd worktree 后危险命令 allow 4) auto-create 幂等性",
+  "success_criteria": "41 case 全部通过",
+  "fixes": []
+}

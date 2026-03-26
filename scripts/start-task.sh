@@ -15,9 +15,9 @@ if [[ -z "$TYPE" ]] || [[ -z "$SLUG" ]]; then
 fi
 
 case "$TYPE" in
-  feat|fix|refactor|spike|chore) ;;
+  feat|fix|refactor|spike|chore|auto) ;;
   *)
-    echo "Invalid type: $TYPE. Use feat|fix|refactor|spike|chore" >&2
+    echo "Invalid type: $TYPE. Use feat|fix|refactor|spike|chore|auto" >&2
     exit 1
     ;;
 esac
@@ -76,7 +76,16 @@ git -C "$WT_PATH" config --worktree rerere.enabled true
 git -C "$WT_PATH" config --worktree branch.autosetuprebase always
 git -C "$WT_PATH" config --worktree user.name "Claude Worker"
 
-# Write worktree metadata
+# Write worktree metadata (with backup)
+_meta_backup() {
+  [[ -f "$WT_META" ]] || return 0
+  local backup_dir="${WT_META}.backups"
+  mkdir -p "$backup_dir"
+  cp "$WT_META" "${backup_dir}/$(date -u +%Y%m%d-%H%M%S).json"
+  # Keep only 3 most recent backups
+  ls -1t "$backup_dir" | tail -n +4 | xargs -r rm -f
+}
+_meta_backup
 cat > "$WT_META" <<EOF
 {
   "slug": "$SLUG",

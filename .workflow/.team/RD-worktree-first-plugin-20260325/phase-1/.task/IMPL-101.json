@@ -1,0 +1,16 @@
+{
+  "id": "IMPL-101",
+  "task": "P0-0: guard 拦截升级为 auto-worktree 引导",
+  "owner": "executor",
+  "priority": "P0",
+  "status": "pending",
+  "phase": 1,
+  "dependencies": [],
+  "description": "创建 scripts/guard-auto-worktree.sh，合并 guard-main-write.sh 和 guard-bash.sh，在 main 分支检测到危险操作时自动创建 worktree 并重放命令，而非单纯拦截。更新 hooks/hooks.json 和 start-task skill。",
+  "success_criteria": "用户在 main 上执行写操作，自动创建 worktree 并完成操作，全程无需手动干预",
+  "files": {
+    "create": ["scripts/guard-auto-worktree.sh"],
+    "modify": ["hooks/hooks.json"],
+    "skills_modify": ["skills/start-task/*.md"]
+  }
+}

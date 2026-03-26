@@ -1,49 +1,63 @@
 #!/usr/bin/env bash
-# guard-main-write.sh — Block Edit/Write when on main or outside task worktree
+# guard-main-write.sh — Block Edit/Write when on main branch
 # Called on PreToolUse (Edit|Write|MultiEdit)
 # stdin: tool input JSON
-# exit 0 + JSON = deny (JSON parsed, tool blocked)
+# exit 0 + JSON = deny (blocking)
 # exit 0 without JSON = allow
+#
+# ARCHITECTURE:
+# - Use CLAUDE_PROJECT_DIR as work_dir fallback (PWD may be reset to main)
+# - In task worktree: always allow (worktree is isolated)
 
 set -euo pipefail
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo '')}"
-[[ -z "$PROJECT_DIR" ]] && exit 0
+input=$(cat)
+tool_name=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
-cd "$PROJECT_DIR"
+# Allow if no tool_name
+[[ -z "$tool_name" ]] && exit 0
 
-current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+# =====================================================================
+# Helper: Check if we are on the main branch (not a task branch)
+# Priority: CLAUDE_PROJECT_DIR (if non-main) > PWD
+# When PWD is main but CLAUDE_PROJECT_DIR is a task worktree, use it
+# =====================================================================
+is_on_main_branch() {
+  local pwd_branch proj_dir proj_branch
 
-# Allow if we can't determine branch
-[[ -z "$current_branch" ]] && exit 0
+  # Check PWD branch
+  pwd_branch=$(git -C "$PWD" symbolic-ref --short HEAD 2>/dev/null || echo "unknown")
 
-# BLOCK: on main branch — exit 0 + JSON deny
-if [[ "$current_branch" == "main" ]]; then
-  jq -n '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: "Cannot edit/write files while on main branch. Use /worktree-first:start-task to create a task worktree first."
-    }
-  }'
+  # If PWD is already non-main, trust it
+  [[ "$pwd_branch" != "main" ]] && [[ "$pwd_branch" != "unknown" ]] && return 1
+
+  # PWD is main — check CLAUDE_PROJECT_DIR as fallback
+  if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+    proj_dir="${CLAUDE_PROJECT_DIR}"
+    if git -C "$proj_dir" rev-parse --show-toplevel &>/dev/null; then
+      proj_branch=$(git -C "$proj_dir" symbolic-ref --short HEAD 2>/dev/null || echo "")
+      [[ "$proj_branch" != "main" ]] && return 1
+    fi
+  fi
+
+  # Both are main (or unknown)
+  return 0
+}
+
+# =====================================================================
+# Core Logic: Only block on main branch
+# =====================================================================
+if ! is_on_main_branch; then
+  # On a task branch - always allow (worktree is isolated)
   exit 0
 fi
 
-# BLOCK: on a task branch but NOT inside a worktree directory (in the main repo dir)
-is_main_worktree=false
-if [[ "$(pwd)" == "$PROJECT_DIR" ]]; then
-  is_main_worktree=true
-fi
-
-if [[ "$is_main_worktree" == "true" ]] && [[ "$current_branch" =~ ^task/ ]]; then
-  jq -n '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: "You are on a task branch but still in the main worktree directory. Switch to your task worktree with: cd ../wt/<slug>"
-    }
-  }'
-  exit 0
-fi
-
+# In main worktree - block Edit/Write/MultiEdit
+jq -n '{
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+    permissionDecisionReason: "Cannot edit/write files in main worktree. Use /worktree-first:start-task to create a task worktree first."
+  }
+}'
 exit 0

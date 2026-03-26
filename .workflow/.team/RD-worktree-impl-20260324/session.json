@@ -1,0 +1,14 @@
+{
+  "team_name": "roadmap-dev",
+  "session_id": "RD-worktree-impl-20260324",
+  "project_root": "/Users/c/auto-git/worktree-first-plugin",
+  "skill_root": "/Users/c/.claude-profiles/minimax-e8e3bvh9/skills/team-roadmap-dev",
+  "topic": "worktree-first-plugin P0-P2 full implementation",
+  "pipeline_mode": "roadmap-driven",
+  "phases": ["P0", "P1", "P2"],
+  "gc_round": 0,
+  "max_gc_rounds": 3,
+  "completion_action": "auto_keep",
+  "created": "2026-03-24",
+  "status": "active"
+}

@@ -3,6 +3,12 @@
 # Called on PreToolUse (Bash)
 # stdin: tool input JSON
 # exit 0 + JSON deny = blocked; exit 0 (no JSON) = allowed
+#
+# ARCHITECTURE (D1+D2+D4+D5+D6+D7):
+# - NEVER cd away from PWD - always use git -C "$PWD"
+# - Detect main worktree: PWD == git rev-parse --show-toplevel
+# - Worktree is isolated: ALL operations allowed inside worktree
+# - Dynamic worktree path via git worktree list parent
 
 set -euo pipefail
 
@@ -12,124 +18,91 @@ COMMAND=$(echo "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || ec
 
 [[ -z "$COMMAND" ]] && exit 0
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo '')}"
-[[ -z "$PROJECT_DIR" ]] && exit 0
-
-# Check current branch
-cd "$PROJECT_DIR"
-current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
-
 # =====================================================================
-# Rule 1: On main branch — block ALL file-writing Bash commands
+# Helper: Check if we are on the main branch (not a task branch)
+# Priority: CLAUDE_PROJECT_DIR (if non-main) > PWD
+# When PWD is main but CLAUDE_PROJECT_DIR is a task worktree, use it
 # =====================================================================
-if [[ "$current_branch" == "main" ]]; then
-  # Detect file-writing commands: output redirect, tee, sed -i, perl -i,
-  # python -c with write, truncate, dd, tr of=
-  # Allow: redirects to /dev/null (any spacing: >file, > file, >  file)
-  if echo "$COMMAND" | grep -qE '(\s>>|\s>|\|[[:space:]]*tee\b|\|cat\s*>|sed\s+-i|perl\s+-i|\S\.write\(|truncate|dd\b.*of=|tr\b.*of=)' && \
-     ! echo "$COMMAND" | grep -qE '[^>]*>(2\s*)?\s*/dev/null'; then
-    DENY_REASON="Cannot run file-writing commands while on main branch. Switch to a task worktree first."
-    jq -n --arg r "$DENY_REASON" '{
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: $r
-      }
-    }'
-    exit 0
+is_on_main_branch() {
+  local pwd_branch proj_dir proj_branch
+
+  # Check PWD branch
+  pwd_branch=$(git -C "$PWD" symbolic-ref --short HEAD 2>/dev/null || echo "unknown")
+
+  # If PWD is already non-main, trust it
+  [[ "$pwd_branch" != "main" ]] && [[ "$pwd_branch" != "unknown" ]] && return 1
+
+  # PWD is main — check CLAUDE_PROJECT_DIR as fallback
+  if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+    proj_dir="${CLAUDE_PROJECT_DIR}"
+    if git -C "$proj_dir" rev-parse --show-toplevel &>/dev/null; then
+      proj_branch=$(git -C "$proj_dir" symbolic-ref --short HEAD 2>/dev/null || echo "")
+      [[ "$proj_branch" != "main" ]] && return 1
+    fi
   fi
-fi
+
+  # Both are main (or unknown)
+  return 0
+}
 
 # =====================================================================
-# Rule 2: Block git push to main (any form, force or not)
-# Blocks: git push origin main, git push origin feature:refs/heads/main, etc.
+# Helper: Check if command is dangerous (7 rules)
 # =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*main|git[[:space:]]+push[[:space:]]+[^;]*refs/heads/main'; then
-  DENY_REASON="Cannot push directly to main. Use PR + merge workflow to update main."
-  jq -n --arg r "$DENY_REASON" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
-    }
-  }'
+is_dangerous_bash() {
+  local command="$1"
+
+  # Rule 1: File-writing commands
+  if echo "$command" | grep -qE '(\s>>|\s>|\|[[:space:]]*tee\b|\|cat\s*>|sed\s+-i|perl\s+-i|\S\.write\(|truncate|dd\b.*of=|tr\b.*of=)' && \
+     ! echo "$command" | grep -qE '[^>]*>(2\s*)?\s*/dev/null'; then
+    return 0
+  fi
+
+  # Rule 2: git push to main
+  if echo "$command" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*main|git[[:space:]]+push[[:space:]]+[^;]*refs/heads/main'; then
+    return 0
+  fi
+
+  # Rule 3: bare --force (without --force-with-lease)
+  if echo "$command" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*'"--force($| )" && \
+     ! echo "$command" | grep -qE -- '--force-with-lease'; then
+    return 0
+  fi
+
+  # Rule 3b: -f short form
+  if echo "$command" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*'"-f($| )" && \
+     ! echo "$command" | grep -qE -- '--force-with-lease'; then
+    return 0
+  fi
+
+  # Rule 4: git reset --hard (bare form)
+  if echo "$command" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard$'; then
+    return 0
+  fi
+
+  # Rule 5: git clean -x or -X
+  if echo "$command" | grep -qE 'git[[:space:]]+clean[[:space:]]+-[fFxX]([dD]*[xX]+[dD]*)$'; then
+    return 0
+  fi
+
+  # Rule 6: delete main/master
+  if echo "$command" | grep -qE 'git[[:space:]]+branch[[:space:]]+-[Dd][[:space:]]+(main|master)'; then
+    return 0
+  fi
+
+  return 1
+}
+
+# =====================================================================
+# Core Logic: Only block on main branch (D1+D2 fix)
+# =====================================================================
+if ! is_on_main_branch; then
+  # Inside a worktree - always allow (worktree is isolated)
   exit 0
 fi
 
-# =====================================================================
-# Rule 3: Block bare --force (without --force-with-lease)
-# Blocks: --force, -f (both long and short form)
-# Allows: --force-with-lease (always safe)
-# =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*'"--force($| )" && \
-   ! echo "$COMMAND" | grep -qE -- '--force-with-lease'; then
-  DENY_REASON="Use --force-with-lease instead of bare --force."
-  jq -n --arg r "$DENY_REASON" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
-    }
-  }'
-  exit 0
-fi
-
-# Also block -f short form (but not -fx, -fX which are different flags)
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+[^;]*'"-f($| )" && \
-   ! echo "$COMMAND" | grep -qE -- '--force-with-lease'; then
-  DENY_REASON="Use --force-with-lease (-f is not allowed). Bare force push is dangerous."
-  jq -n --arg r "$DENY_REASON" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
-    }
-  }'
-  exit 0
-fi
-
-# =====================================================================
-# Rule 4: Block git reset --hard without explicit commit/path
-# git reset --hard (bare, no target) is maximally dangerous: resets index
-# and working tree to HEAD, losing ALL uncommitted changes.
-# git reset --hard <commit> is still dangerous but intentional.
-# We block only the bare form (no path/ref after --hard).
-# =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard$'; then
-  DENY_REASON="git reset --hard with no target is maximally dangerous. Use git restore or specify a commit."
-  jq -n --arg r "$DENY_REASON" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
-    }
-  }'
-  exit 0
-fi
-
-# =====================================================================
-# Rule 5: Block git clean when -x or -X flag is present (destroys
-# ignored files like build artifacts, node_modules). -fd without x/X is safe.
-# Blocks: -fdx, -fdX, -fdxd, -fdxx, -fx, -fX (any sequence with x/X)
-# Pattern: [dD]*[xX]+[dD]* matches x/X surrounded by any number of d/D
-# =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+clean[[:space:]]+-[fFxX]([dD]*[xX]+[dD]*)$'; then
-  DENY_REASON="git clean with -x or -X destroys ignored files (build artifacts, node_modules). Use -fd for safe cleanup."
-  jq -n --arg r "$DENY_REASON" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $r
-    }
-  }'
-  exit 0
-fi
-
-# =====================================================================
-# Rule 6: Block deleting main or master
-# =====================================================================
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+branch[[:space:]]+-[Dd][[:space:]]+(main|master)'; then
-  DENY_REASON="Cannot delete main or master branch."
+# In main worktree - check for dangerous commands
+if is_dangerous_bash "$COMMAND"; then
+  DENY_REASON="Cannot run dangerous commands in main worktree. Switch to a task worktree first."
   jq -n --arg r "$DENY_REASON" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

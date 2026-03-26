@@ -1,0 +1,19 @@
+{
+  "id": "IMPL-P0-2",
+  "title": "doctor.sh staleness check fix",
+  "description": "Fix the staleness check in doctor.sh to use metadata `last_active_at` instead of commit time. Currently uses `git log -1 --format=\"%ct\"` which marks a worktree stale if the commit is 10+ days old, but the metadata `last_active_at` field is more accurate for activity tracking.",
+  "files": [
+    "scripts/doctor.sh"
+  ],
+  "implementation": "Modify staleness check to read from `.worktree-first/worktrees/<slug>.json` and use the `last_active_at` timestamp field instead of `git log -1 --format=\"%ct\"`. Must handle missing metadata files gracefully (fallback to current behavior).",
+  "convergence": [
+    "doctor.sh uses last_active_at from metadata for staleness check",
+    "Missing metadata files fall back gracefully without error",
+    "Active tasks (recent last_active_at) are not marked stale"
+  ],
+  "depends_on": [],
+  "wave": 1,
+  "phase": 1,
+  "requirement_id": "P0-2",
+  "roadmap_ref": "Phase 1 P0-2"
+}

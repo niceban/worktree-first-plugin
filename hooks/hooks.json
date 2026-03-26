@@ -22,8 +22,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/guard-main-write.sh",
-            "timeout": 10
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/guard-auto-worktree.sh",
+            "timeout": 15
           }
         ]
       },
@@ -32,8 +32,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/guard-bash.sh",
-            "timeout": 10
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/guard-auto-worktree.sh",
+            "timeout": 15
           }
         ]
       }
@@ -57,6 +57,17 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/task-completed-check.sh",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-stop.sh",
+            "timeout": 10
           }
         ]
       }

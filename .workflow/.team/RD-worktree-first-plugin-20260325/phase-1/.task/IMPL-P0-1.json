@@ -1,0 +1,18 @@
+{
+  "id": "IMPL-P0-1",
+  "title": "resume-task.sh parsing bug fix",
+  "description": "Fix the porcelain parsing bug in resume-task.sh. The issue is that `git worktree list --porcelain` outputs entries separated by blank lines, and `while read -r line` terminates early on blank lines, causing incomplete worktree path parsing.",
+  "files": [
+    "scripts/resume-task.sh"
+  ],
+  "implementation": "Replace `while read -r line` with `while IFS= read -r line` or restructure the parsing logic to properly handle blank line separators from porcelain output.",
+  "convergence": [
+    "Create 3+ worktrees and run resume-task.sh — all slugs/paths/branches parsed correctly",
+    "Existing single-worktree case still works"
+  ],
+  "depends_on": [],
+  "wave": 1,
+  "phase": 1,
+  "requirement_id": "P0-1",
+  "roadmap_ref": "Phase 1 P0-1"
+}

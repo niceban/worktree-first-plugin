@@ -1,0 +1,13 @@
+{
+  "team_name": "roadmap-dev",
+  "pipeline_mode": "roadmap-driven",
+  "pipeline_stages": ["planner", "executor", "verifier"],
+  "roles": ["coordinator", "planner", "executor", "verifier"],
+  "session_id": "RD-worktree-first-plugin-20260325",
+  "depth": "full",
+  "gate": "verification",
+  "phase_count": 4,
+  "current_phase": 1,
+  "requirement_summary": "让 worktree-first-plugin 成为全自动托管 Git 插件套件（10 项特性）",
+  "created_at": "2026-03-25"
+}

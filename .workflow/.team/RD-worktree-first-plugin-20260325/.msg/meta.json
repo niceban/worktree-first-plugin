@@ -1,0 +1,55 @@
+{
+  "pipeline_mode": "roadmap-driven",
+  "pipeline_stages": [
+    "planner",
+    "executor",
+    "verifier"
+  ],
+  "roles": [
+    "coordinator",
+    "planner",
+    "executor",
+    "verifier"
+  ],
+  "team_name": "roadmap-dev",
+  "current_phase": 3,
+  "active_workers": [],
+  "role_state": {
+    "planner": {
+      "status": "phase_complete",
+      "phase": 1,
+      "tasks_completed": [
+        "IMPL-P0-1",
+        "IMPL-P0-2"
+      ],
+      "artifacts": [
+        "phase-1/.task/IMPL_PLAN.md",
+        "phase-1/.task/IMPL-P0-1.json",
+        "phase-1/.task/IMPL-P0-2.json",
+        "phase-1/.task/TODO_LIST.md"
+      ],
+      "wave_count": 1,
+      "wave_tasks": {
+        "wave_1": [
+          "IMPL-P0-1",
+          "IMPL-P0-2"
+        ]
+      },
+      "files_modified": [
+        "scripts/resume-task.sh",
+        "scripts/doctor.sh"
+      ],
+      "discuss_results": {
+        "verdict": "none",
+        "rating": null
+      },
+      "key_decisions": [
+        "Both P0-1 and P0-2 are independent and can execute in parallel",
+        "P0-1 fix: use IFS= read or awk for porcelain parsing",
+        "P0-2 fix: read last_active_at from metadata, fallback to commit time"
+      ],
+      "_updated_at": "2026-03-25T02:05:03.828+00:00"
+    }
+  },
+  "updated_at": "2026-03-25T02:05:03.828+00:00"
+}
